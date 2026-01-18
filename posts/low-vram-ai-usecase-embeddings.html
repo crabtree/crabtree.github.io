@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Embeddings Generation on Low VRAM GPUs: A Practical Guide with Intel Arc A310 - Tech@digitaltree.pl</title>
+  
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --bg-secondary: #1a1a1a;
+      --bg-code: #151515;
+      --text: #e5e5e5;
+      --text-muted: #9a9a9a;
+      --accent: #ff6a00;
+      --border: #2a2a2a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    header {
+      padding: 3rem 1.5rem 1rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 2rem;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .back-link:hover {
+      color: var(--accent);
+    }
+
+    article {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 1.5rem 4rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      line-height: 1.2;
+    }
+
+    .meta {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+    }
+
+    h2 {
+      font-size: 1.8rem;
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    h3 {
+      font-size: 1.4rem;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+    }
+
+    p {
+      margin-bottom: 1.2rem;
+    }
+
+    ul, ol {
+      margin-bottom: 1.2rem;
+      padding-left: 2rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    code {
+      background: var(--bg-code);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #ffa07a;
+    }
+
+    pre {
+      background: var(--bg-code);
+      padding: 1.5rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border);
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .note {
+      background: var(--bg-secondary);
+      border-left: 4px solid var(--accent);
+      padding: 1rem 1.5rem;
+      margin: 1.5rem 0;
+      border-radius: 4px;
+    }
+
+    .note strong {
+      color: var(--accent);
+    }
+
+    .hardware-spec {
+      background: var(--bg-secondary);
+      padding: 1.5rem;
+      border-radius: 6px;
+      margin: 1.5rem 0;
+    }
+
+    .hardware-spec h4 {
+      color: var(--accent);
+      margin-bottom: 0.75rem;
+    }
+
+    .hardware-spec ul {
+      margin-bottom: 0;
+    }
+
+    .diagram {
+      background: var(--bg-secondary);
+      padding: 2rem;
+      border-radius: 6px;
+      margin: 1.5rem 0;
+      font-family: monospace;
+      font-size: 0.9rem;
+      line-height: 1.8;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .comparison-table th {
+      background: var(--bg-secondary);
+      color: var(--accent);
+    }
+
+    .comparison-table tr:nth-child(even) {
+      background: var(--bg-secondary);
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2rem;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+      }
+
+      h3 {
+        font-size: 1.2rem;
+      }
+
+      pre {
+        padding: 1rem;
+        font-size: 0.85rem;
+      }
+
+      .comparison-table {
+        font-size: 0.85rem;
+      }
+
+      .comparison-table th,
+      .comparison-table td {
+        padding: 0.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="../index.html" class="back-link">← Back to Home</a>
+    <h1>Embeddings Generation on Low VRAM GPUs: A Practical Guide with Intel Arc A310</h1>
+    <div class="meta">Published on January 17, 2026</div>
+  </header>
+
+  <article>
+    <p>
+      Running AI workloads doesn't always require expensive, high-end GPUs. Embeddings generation—one of the most practical AI use cases—is perfectly suited for budget hardware. In this post, I'll show you how to generate embeddings using an Intel Arc A310 with just 4GB of VRAM.
+    </p>
+
+    <h2>What Are Embeddings?</h2>
+
+    <p>
+      Embeddings are dense vector representations of data—text, images, audio, or any other content—produced by neural networks. Instead of working with raw text like "The cat sat on the mat," we transform it into a fixed-length array of floating-point numbers that capture the semantic meaning.
+    </p>
+
+    <div class="diagram">
+      "The cat sat on the mat" → [Embedding Model] → [0.12, -0.45, 0.78, 0.33, -0.91, ...]
+    </div>
+
+    <p>
+      These vectors typically have 384, 768, or 1024 dimensions. The key insight is that semantically similar content produces similar vectors. "A feline rested on the rug" would generate a vector very close to our cat example, even though the words are completely different.
+    </p>
+
+    <h3>How Similarity Works</h3>
+
+    <p>
+      Once we have embeddings, we can measure how similar two pieces of content are using mathematical operations. The most common approach is <strong>cosine similarity</strong>, which measures the angle between two vectors:
+    </p>
+
+    <ul>
+      <li>A similarity of <strong>1.0</strong> means the vectors point in the same direction (very similar)</li>
+      <li>A similarity of <strong>0.0</strong> means they're perpendicular (unrelated)</li>
+      <li>A similarity of <strong>-1.0</strong> means they point in opposite directions (semantically opposite)</li>
+    </ul>
+
+    <h2>Why Embeddings Matter</h2>
+
+    <p>
+      Embeddings unlock powerful capabilities that traditional keyword matching simply can't achieve:
+    </p>
+
+    <ul>
+      <li><strong>Semantic Search:</strong> Find documents by meaning, not just keywords. Search for "transportation vehicles" and find results about cars, bikes, and trains.</li>
+      <li><strong>Recommendation Systems:</strong> Suggest similar products, articles, or content based on vector proximity.</li>
+      <li><strong>Clustering & Classification:</strong> Group similar items together automatically without manual labeling.</li>
+      <li><strong>RAG (Retrieval-Augmented Generation):</strong> Power context retrieval for LLMs by finding the most relevant documents to include in prompts.</li>
+    </ul>
+
+    <h2>Why Low VRAM GPUs Work for Embeddings</h2>
+
+    <p>
+      Here's the good news: embedding models are significantly smaller than generative LLMs. While running a 7B parameter chat model requires 8-14GB of VRAM, most embedding models fit comfortably in 1-2GB. This makes them perfect for budget GPUs.
+    </p>
+
+    <p>
+      Embedding inference is also less demanding than text generation. You're doing a single forward pass through the network rather than generating tokens one by one. This means even modest hardware can achieve excellent throughput.
+    </p>
+
+    <div class="hardware-spec">
+      <h4>Intel Arc A310 Specifications</h4>
+      <ul>
+        <li><strong>VRAM:</strong> 4GB GDDR6</li>
+        <li><strong>Architecture:</strong> Intel Xe HPG (Alchemist)</li>
+        <li><strong>Xe Cores:</strong> 6</li>
+        <li><strong>Ray Tracing Units:</strong> 6</li>
+        <li><strong>TDP:</strong> 75W (no external power required)</li>
+      </ul>
+    </div>
+
+    <p>
+      The Intel Arc A310 is an excellent choice for embeddings because of its price-to-performance ratio and growing software ecosystem. It's one of the most affordable discrete GPUs that can accelerate AI workloads.
+    </p>
+
+    <h3>Embedding Models That Fit in 4GB VRAM</h3>
+
+    <ul>
+      <li><code>all-MiniLM-L6-v2</code> — 384 dimensions, ~90MB (excellent for getting started)</li>
+      <li><code>bge-small-en-v1.5</code> — 384 dimensions, ~130MB (strong performance)</li>
+      <li><code>nomic-embed-text-v1.5</code> — 768 dimensions, ~275MB (higher quality)</li>
+      <li><code>mxbai-embed-large-v1</code> — 1024 dimensions, ~670MB (best quality that fits)</li>
+    </ul>
+
+    <h2>Option 1: Using Ollama for Embeddings</h2>
+
+    <p>
+      If you already have Ollama running (see my <a href="self-hosting-ai-with-ollama.html">previous post on self-hosting Ollama</a>), it's the quickest way to start generating embeddings. Ollama provides a simple API for embedding generation.
+    </p>
+
+    <h3>Pulling an Embedding Model</h3>
+
+    <pre><code>ollama pull nomic-embed-text</code></pre>
+
+    <h3>Generating Embeddings via API</h3>
+
+    <pre><code>import requests
+import json
+
+def get_embedding_ollama(text: str, model: str = "nomic-embed-text") -> list[float]:
+    """Generate embeddings using Ollama's API."""
+    response = requests.post(
+        "http://localhost:11434/api/embeddings",
+        json={
+            "model": model,
+            "prompt": text
+        }
+    )
+    response.raise_for_status()
+    return response.json()["embedding"]
+
+# Example usage
+text = "The quick brown fox jumps over the lazy dog"
+embedding = get_embedding_ollama(text)
+
+print(f"Embedding dimensions: {len(embedding)}")
+print(f"First 5 values: {embedding[:5]}")</code></pre>
+
+    <h3>Batch Processing with Ollama</h3>
+
+    <pre><code>def get_embeddings_batch(texts: list[str], model: str = "nomic-embed-text") -> list[list[float]]:
+    """Generate embeddings for multiple texts."""
+    embeddings = []
+    for text in texts:
+        embedding = get_embedding_ollama(text, model)
+        embeddings.append(embedding)
+    return embeddings
+
+# Process multiple documents
+documents = [
+    "Machine learning is a subset of artificial intelligence.",
+    "Deep learning uses neural networks with many layers.",
+    "Natural language processing helps computers understand text.",
+    "Computer vision enables machines to interpret images."
+]
+
+embeddings = get_embeddings_batch(documents)
+print(f"Generated {len(embeddings)} embeddings")</code></pre>
+
+    <div class="note">
+      <strong>Note:</strong> Ollama's Intel Arc support is still maturing. As of early 2026, Ollama may fall back to CPU for some operations on Intel GPUs. However, Ollama does support Vulkan, which provides GPU acceleration for Intel Arc cards. Ensure you have the latest Vulkan drivers installed and check the Ollama documentation for the latest compatibility information.
+    </div>
+
+    <h2>Option 2: Native Intel Arc with IPEX + Sentence-Transformers</h2>
+
+    <p>
+      For better GPU utilization on Intel Arc, you can use Intel Extension for PyTorch (IPEX) directly with the sentence-transformers library. This gives you native XPU acceleration.
+    </p>
+
+    <h3>Environment Setup</h3>
+
+    <p>First, ensure you have the Intel GPU drivers and oneAPI toolkit installed:</p>
+
+    <pre><code># Install Intel GPU drivers (Ubuntu/Debian)
+sudo apt update
+sudo apt install -y intel-opencl-icd intel-level-zero-gpu level-zero
+
+# Install oneAPI Base Toolkit (includes IPEX dependencies)
+wget https://registrationcenter-download.intel.com/akdlm/IRC_NAS/... # (check Intel's website for latest)
+sudo sh ./l_BaseKit_p_*.sh</code></pre>
+
+    <p>Set up a Python environment with the required packages:</p>
+
+    <pre><code># Create a virtual environment
+python -m venv embeddings-env
+source embeddings-env/bin/activate
+
+# Install Intel Extension for PyTorch
+pip install torch==2.1.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+pip install intel-extension-for-pytorch==2.1.0
+
+# Install sentence-transformers and dependencies
+pip install sentence-transformers transformers</code></pre>
+
+    <h3>Verifying GPU Detection</h3>
+
+    <pre><code>import torch
+import intel_extension_for_pytorch as ipex
+
+# Check if XPU (Intel GPU) is available
+print(f"XPU available: {torch.xpu.is_available()}")
+print(f"XPU device count: {torch.xpu.device_count()}")
+
+if torch.xpu.is_available():
+    print(f"XPU device name: {torch.xpu.get_device_name(0)}")</code></pre>
+
+    <h3>Generating Embeddings with IPEX</h3>
+
+    <pre><code>import torch
+import intel_extension_for_pytorch as ipex
+from sentence_transformers import SentenceTransformer
+
+def load_model_to_xpu(model_name: str) -> SentenceTransformer:
+    """Load a sentence transformer model and move it to Intel XPU."""
+    # Load the model
+    model = SentenceTransformer(model_name)
+    
+    # Move to XPU if available
+    if torch.xpu.is_available():
+        model = model.to("xpu")
+        # Optimize with IPEX
+        model = ipex.optimize(model)
+        print(f"Model loaded on XPU: {torch.xpu.get_device_name(0)}")
+    else:
+        print("XPU not available, using CPU")
+    
+    return model
+
+# Load a small, efficient model
+model = load_model_to_xpu("all-MiniLM-L6-v2")
+
+# Generate embeddings
+texts = [
+    "Machine learning is transforming industries.",
+    "Artificial intelligence powers modern applications.",
+    "Deep neural networks learn complex patterns."
+]
+
+# The model handles device placement automatically
+embeddings = model.encode(texts, convert_to_tensor=True)
+
+print(f"Embeddings shape: {embeddings.shape}")
+print(f"Device: {embeddings.device}")</code></pre>
+
+    <h3>Efficient Batch Processing</h3>
+
+    <pre><code>import torch
+from sentence_transformers import SentenceTransformer
+import intel_extension_for_pytorch as ipex
+from typing import Generator
+
+def batch_generator(items: list, batch_size: int) -> Generator:
+    """Yield batches from a list."""
+    for i in range(0, len(items), batch_size):
+        yield items[i:i + batch_size]
+
+def generate_embeddings_batched(
+    model: SentenceTransformer,
+    texts: list[str],
+    batch_size: int = 32
+) -> torch.Tensor:
+    """Generate embeddings in batches to manage VRAM usage."""
+    all_embeddings = []
+    
+    for batch in batch_generator(texts, batch_size):
+        with torch.no_grad():
+            batch_embeddings = model.encode(
+                batch,
+                convert_to_tensor=True,
+                show_progress_bar=False
+            )
+            # Move to CPU to free up VRAM
+            all_embeddings.append(batch_embeddings.cpu())
+    
+    return torch.cat(all_embeddings, dim=0)
+
+# Load model
+model = load_model_to_xpu("bge-small-en-v1.5")
+
+# Example: Process a larger dataset
+documents = [f"Document number {i} with some content." for i in range(1000)]
+
+# Use smaller batch size for 4GB VRAM
+embeddings = generate_embeddings_batched(model, documents, batch_size=16)
+
+print(f"Processed {len(documents)} documents")
+print(f"Embeddings shape: {embeddings.shape}")</code></pre>
+
+    <div class="note">
+      <strong>Tip:</strong> For the Intel Arc A310 with 4GB VRAM, start with a batch size of 16-32 for small models like all-MiniLM-L6-v2. Reduce to 8-16 for larger models like nomic-embed-text. Monitor VRAM usage with <code>intel_gpu_top</code>.
+    </div>
+
+    <h2>Option 3: OpenVINO for Intel Arc</h2>
+
+    <p>
+      Intel's OpenVINO toolkit provides another path for running embedding models on Intel hardware. OpenVINO is optimized specifically for Intel processors and GPUs, potentially offering better performance than generic PyTorch.
+    </p>
+
+    <h3>Installing OpenVINO</h3>
+
+    <pre><code>pip install openvino openvino-tokenizers
+pip install optimum[openvino]</code></pre>
+
+    <h3>Converting and Running Models with OpenVINO</h3>
+
+    <pre><code>from optimum.intel import OVModelForFeatureExtraction
+from transformers import AutoTokenizer
+import numpy as np
+
+def load_openvino_model(model_name: str):
+    """Load a model optimized for OpenVINO."""
+    # This will convert and cache the model automatically
+    model = OVModelForFeatureExtraction.from_pretrained(
+        model_name,
+        export=True,
+        device="GPU"  # Use Intel GPU
+    )
+    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    return model, tokenizer
+
+def get_embedding_openvino(text: str, model, tokenizer) -> np.ndarray:
+    """Generate embedding using OpenVINO model."""
+    inputs = tokenizer(
+        text,
+        padding=True,
+        truncation=True,
+        max_length=512,
+        return_tensors="pt"
+    )
+    
+    outputs = model(**inputs)
+    
+    # Mean pooling over token embeddings
+    attention_mask = inputs["attention_mask"]
+    token_embeddings = outputs.last_hidden_state
+    
+    input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
+    embedding = torch.sum(token_embeddings * input_mask_expanded, 1) / torch.clamp(
+        input_mask_expanded.sum(1), min=1e-9
+    )
+    
+    return embedding.numpy()
+
+# Load model
+model, tokenizer = load_openvino_model("sentence-transformers/all-MiniLM-L6-v2")
+
+# Generate embedding
+text = "OpenVINO optimizes inference on Intel hardware."
+embedding = get_embedding_openvino(text, model, tokenizer)
+
+print(f"Embedding shape: {embedding.shape}")</code></pre>
+
+    <div class="note">
+      <strong>When to use OpenVINO:</strong> Consider OpenVINO if you need maximum inference performance on Intel hardware, plan to deploy in production, or want INT8 quantization for even smaller models.
+    </div>
+
+    <h2>Performance Considerations</h2>
+
+    <h3>Batch Size Tuning</h3>
+
+    <p>
+      With 4GB of VRAM, you need to balance batch size against memory usage. Here are starting points for the Intel Arc A310:
+    </p>
+
+    <ul>
+      <li><code>all-MiniLM-L6-v2</code>: batch size 32-64</li>
+      <li><code>bge-small-en-v1.5</code>: batch size 24-32</li>
+      <li><code>nomic-embed-text-v1.5</code>: batch size 8-16</li>
+      <li><code>mxbai-embed-large-v1</code>: batch size 4-8</li>
+    </ul>
+
+    <h3>Monitoring VRAM Usage</h3>
+
+    <pre><code># Monitor Intel GPU usage in real-time
+intel_gpu_top
+
+# Or use Python
+import torch
+if torch.xpu.is_available():
+    print(f"VRAM used: {torch.xpu.memory_allocated() / 1024**2:.1f} MB")
+    print(f"VRAM cached: {torch.xpu.memory_reserved() / 1024**2:.1f} MB")</code></pre>
+
+    <h3>Expected Throughput</h3>
+
+    <p>
+      On the Intel Arc A310, you can expect roughly:
+    </p>
+
+    <ul>
+      <li>100-200 embeddings/second with all-MiniLM-L6-v2</li>
+      <li>50-100 embeddings/second with bge-small-en-v1.5</li>
+      <li>20-50 embeddings/second with larger models</li>
+    </ul>
+
+    <p>
+      Actual performance depends on text length, batch size, and system configuration.
+    </p>
+
+    <h2>Conclusion</h2>
+
+    <p>
+      Embeddings generation is an excellent AI use case for low VRAM GPUs like the Intel Arc A310. With just 4GB of VRAM, you can run production-quality embedding models that power semantic search, recommendations, and RAG applications.
+    </p>
+
+    <p>
+      We covered three viable approaches:
+    </p>
+
+    <ul>
+      <li><strong>Ollama</strong> for the quickest start with minimal setup</li>
+      <li><strong>IPEX + Sentence-Transformers</strong> for flexibility and good GPU utilization</li>
+      <li><strong>OpenVINO</strong> for maximum performance on Intel hardware</li>
+    </ul>
+
+    <div class="note">
+      <strong>Related:</strong> Check out my post on <a href="self-hosting-ai-with-ollama.html">Self-Hosting AI with Ollama</a> for setting up a complete local AI environment.
+    </div>
+
+  </article>
+
+  <footer>
+    &copy; 2026 Tech@digitaltree.pl — Built with curiosity and caffeine.
+  </footer>
+
+</body>
+</html>
