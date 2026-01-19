@@ -369,150 +369,79 @@ print(f"Generated {len(embeddings)} embeddings")</code></pre>
       <strong>Note:</strong> Ollama's Intel Arc support is still maturing. As of early 2026, Ollama may fall back to CPU for some operations on Intel GPUs. However, Ollama does support Vulkan, which provides GPU acceleration for Intel Arc cards. Ensure you have the latest Vulkan drivers installed and check the Ollama documentation for the latest compatibility information.
     </div>
 
-    <h2>Option 2: Native Intel Arc with IPEX + Sentence-Transformers</h2>
+    <h2>Option 2: OpenVINO for Intel Arc</h2>
 
     <p>
-      For better GPU utilization on Intel Arc, you can use Intel Extension for PyTorch (IPEX) directly with the sentence-transformers library. This gives you native XPU acceleration.
+      Intel's OpenVINO (Open Visual Inference and Neural Network Optimization) toolkit is a comprehensive inference optimization framework specifically designed for Intel hardware. Unlike general-purpose ML frameworks, OpenVINO focuses solely on inference performance, using compiler-level optimizations, model quantization, and hardware-specific instruction sets to squeeze maximum performance from Intel CPUs and GPUs.
     </p>
 
-    <h3>Environment Setup</h3>
-
-    <p>First, ensure you have the Intel GPU drivers and oneAPI toolkit installed:</p>
-
-    <pre><code># Install Intel GPU drivers (Ubuntu/Debian)
-sudo apt update
-sudo apt install -y intel-opencl-icd intel-level-zero-gpu level-zero
-
-# Install oneAPI Base Toolkit (includes IPEX dependencies)
-wget https://registrationcenter-download.intel.com/akdlm/IRC_NAS/... # (check Intel's website for latest)
-sudo sh ./l_BaseKit_p_*.sh</code></pre>
-
-    <p>Set up a Python environment with the required packages:</p>
-
-    <pre><code># Create a virtual environment
-python -m venv embeddings-env
-source embeddings-env/bin/activate
-
-# Install Intel Extension for PyTorch
-pip install torch==2.1.0 torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
-pip install intel-extension-for-pytorch==2.1.0
-
-# Install sentence-transformers and dependencies
-pip install sentence-transformers transformers</code></pre>
-
-    <h3>Verifying GPU Detection</h3>
-
-    <pre><code>import torch
-import intel_extension_for_pytorch as ipex
-
-# Check if XPU (Intel GPU) is available
-print(f"XPU available: {torch.xpu.is_available()}")
-print(f"XPU device count: {torch.xpu.device_count()}")
-
-if torch.xpu.is_available():
-    print(f"XPU device name: {torch.xpu.get_device_name(0)}")</code></pre>
-
-    <h3>Generating Embeddings with IPEX</h3>
-
-    <pre><code>import torch
-import intel_extension_for_pytorch as ipex
-from sentence_transformers import SentenceTransformer
-
-def load_model_to_xpu(model_name: str) -> SentenceTransformer:
-    """Load a sentence transformer model and move it to Intel XPU."""
-    # Load the model
-    model = SentenceTransformer(model_name)
-    
-    # Move to XPU if available
-    if torch.xpu.is_available():
-        model = model.to("xpu")
-        # Optimize with IPEX
-        model = ipex.optimize(model)
-        print(f"Model loaded on XPU: {torch.xpu.get_device_name(0)}")
-    else:
-        print("XPU not available, using CPU")
-    
-    return model
-
-# Load a small, efficient model
-model = load_model_to_xpu("all-MiniLM-L6-v2")
-
-# Generate embeddings
-texts = [
-    "Machine learning is transforming industries.",
-    "Artificial intelligence powers modern applications.",
-    "Deep neural networks learn complex patterns."
-]
-
-# The model handles device placement automatically
-embeddings = model.encode(texts, convert_to_tensor=True)
-
-print(f"Embeddings shape: {embeddings.shape}")
-print(f"Device: {embeddings.device}")</code></pre>
-
-    <h3>Efficient Batch Processing</h3>
-
-    <pre><code>import torch
-from sentence_transformers import SentenceTransformer
-import intel_extension_for_pytorch as ipex
-from typing import Generator
-
-def batch_generator(items: list, batch_size: int) -> Generator:
-    """Yield batches from a list."""
-    for i in range(0, len(items), batch_size):
-        yield items[i:i + batch_size]
-
-def generate_embeddings_batched(
-    model: SentenceTransformer,
-    texts: list[str],
-    batch_size: int = 32
-) -> torch.Tensor:
-    """Generate embeddings in batches to manage VRAM usage."""
-    all_embeddings = []
-    
-    for batch in batch_generator(texts, batch_size):
-        with torch.no_grad():
-            batch_embeddings = model.encode(
-                batch,
-                convert_to_tensor=True,
-                show_progress_bar=False
-            )
-            # Move to CPU to free up VRAM
-            all_embeddings.append(batch_embeddings.cpu())
-    
-    return torch.cat(all_embeddings, dim=0)
-
-# Load model
-model = load_model_to_xpu("bge-small-en-v1.5")
-
-# Example: Process a larger dataset
-documents = [f"Document number {i} with some content." for i in range(1000)]
-
-# Use smaller batch size for 4GB VRAM
-embeddings = generate_embeddings_batched(model, documents, batch_size=16)
-
-print(f"Processed {len(documents)} documents")
-print(f"Embeddings shape: {embeddings.shape}")</code></pre>
-
-    <div class="note">
-      <strong>Tip:</strong> For the Intel Arc A310 with 4GB VRAM, start with a batch size of 16-32 for small models like all-MiniLM-L6-v2. Reduce to 8-16 for larger models like nomic-embed-text. Monitor VRAM usage with <code>intel_gpu_top</code>.
-    </div>
-
-    <h2>Option 3: OpenVINO for Intel Arc</h2>
+    <p>
+      For Intel Arc GPUs, OpenVINO provides native support and can deliver significantly better performance than generic PyTorch or TensorFlow implementations. The toolkit automatically handles model conversion from popular formats (PyTorch, ONNX, TensorFlow) and optimizes them for your specific hardware at runtime. This means you get production-ready performance without manual model optimization.
+    </p>
 
     <p>
-      Intel's OpenVINO toolkit provides another path for running embedding models on Intel hardware. OpenVINO is optimized specifically for Intel processors and GPUs, potentially offering better performance than generic PyTorch.
+      OpenVINO shines when you need:
+    </p>
+
+    <ul>
+      <li><strong>Maximum throughput:</strong> Optimized inference paths can be 2-3x faster than generic implementations</li>
+      <li><strong>Production deployment:</strong> Stable, well-tested runtime suitable for long-running applications</li>
+      <li><strong>Model quantization:</strong> Built-in INT8 quantization for even smaller models and faster inference</li>
+      <li><strong>Cross-hardware compatibility:</strong> Same code runs on Intel CPUs, GPUs, and VPUs</li>
+    </ul>
+
+    <p>
+      The setup is slightly more involved than Ollama, but the performance gains make it worthwhile for serious workloads.
     </p>
 
     <h3>Installing OpenVINO</h3>
 
-    <pre><code>pip install openvino openvino-tokenizers
-pip install optimum[openvino]</code></pre>
+    <p>Set up a Python virtual environment and install OpenVINO:</p>
+
+    <pre><code># Create a virtual environment
+python -m venv openvino-env
+source openvino-env/bin/activate
+
+# Install OpenVINO and dependencies
+pip install openvino openvino-tokenizers
+pip install optimum[openvino]
+pip install transformers torch</code></pre>
+
+    <h3>Verifying GPU Detection</h3>
+
+    <pre><code>from openvino.runtime import Core
+
+# Check available devices
+core = Core()
+devices = core.available_devices
+
+print("Available OpenVINO devices:")
+for device in devices:
+    print(f"  - {device}: {core.get_property(device, 'FULL_DEVICE_NAME')}")</code></pre>
+
+    <p>Expected output:</p>
+
+    <pre><code>Available OpenVINO devices:
+  - CPU: Intel(R) Core(TM) i5-8600T CPU @ 2.30GHz
+  - GPU: Intel(R) Arc(TM) A310 LP Graphics (dGPU)</code></pre>
 
     <h3>Converting and Running Models with OpenVINO</h3>
 
+    <p>
+      OpenVINO automatically converts Hugging Face models to its optimized format on first use. The conversion happens in the background and the model is cached, so subsequent runs are faster. The <code>OVModelForFeatureExtraction</code> class handles this conversion and provides a drop-in replacement for standard PyTorch models.
+    </p>
+
+    <p>
+      When you specify <code>device="GPU"</code>, OpenVINO will compile the model specifically for your Intel Arc GPU, taking advantage of hardware-specific optimizations. The first model load may take 30-60 seconds as it converts and optimizes, but this is a one-time cost.
+    </p>
+
+    <p>
+      Converted models are cached in <code>~/.cache/huggingface/hub/</code>. You can change this location by setting the <code>HF_HOME</code> environment variable.
+    </p>
+
     <pre><code>from optimum.intel import OVModelForFeatureExtraction
 from transformers import AutoTokenizer
+import torch
 import numpy as np
 
 def load_openvino_model(model_name: str):
@@ -558,8 +487,70 @@ embedding = get_embedding_openvino(text, model, tokenizer)
 
 print(f"Embedding shape: {embedding.shape}")</code></pre>
 
+    <h3>Batch Processing with OpenVINO</h3>
+
+    <pre><code>def get_embeddings_batch_openvino(
+    texts: list[str], 
+    model, 
+    tokenizer,
+    batch_size: int = 32
+) -> np.ndarray:
+    """Generate embeddings for multiple texts in batches."""
+    all_embeddings = []
+    
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        
+        # Tokenize batch
+        inputs = tokenizer(
+            batch,
+            padding=True,
+            truncation=True,
+            max_length=512,
+            return_tensors="pt"
+        )
+        
+        # Get model outputs
+        outputs = model(**inputs)
+        
+        # Mean pooling
+        attention_mask = inputs["attention_mask"]
+        token_embeddings = outputs.last_hidden_state
+        
+        input_mask_expanded = attention_mask.unsqueeze(-1).expand(
+            token_embeddings.size()
+        ).float()
+        
+        batch_embeddings = torch.sum(
+            token_embeddings * input_mask_expanded, 1
+        ) / torch.clamp(input_mask_expanded.sum(1), min=1e-9)
+        
+        all_embeddings.append(batch_embeddings.numpy())
+    
+    return np.vstack(all_embeddings)
+
+# Load model
+model, tokenizer = load_openvino_model("sentence-transformers/all-MiniLM-L6-v2")
+
+# Process multiple documents
+documents = [
+    "Machine learning is a subset of artificial intelligence.",
+    "Deep learning uses neural networks with many layers.",
+    "Natural language processing helps computers understand text.",
+    "Computer vision enables machines to interpret images."
+] * 250  # 1000 documents
+
+embeddings = get_embeddings_batch_openvino(documents, model, tokenizer, batch_size=32)
+
+print(f"Generated {len(embeddings)} embeddings")
+print(f"Embedding shape: {embeddings.shape}")</code></pre>
+
     <div class="note">
       <strong>When to use OpenVINO:</strong> Consider OpenVINO if you need maximum inference performance on Intel hardware, plan to deploy in production, or want INT8 quantization for even smaller models.
+    </div>
+
+    <div class="note">
+      <strong>Troubleshooting:</strong> If OpenVINO doesn't detect your GPU, ensure drivers are installed correctly and try setting <code>device="CPU"</code> as a fallback. You can also check GPU status with <code>clinfo</code> command after installing <code>clinfo</code> package.
     </div>
 
     <h2>Performance Considerations</h2>
@@ -611,12 +602,11 @@ if torch.xpu.is_available():
     </p>
 
     <p>
-      We covered three viable approaches:
+      We covered two viable approaches:
     </p>
 
     <ul>
       <li><strong>Ollama</strong> for the quickest start with minimal setup</li>
-      <li><strong>IPEX + Sentence-Transformers</strong> for flexibility and good GPU utilization</li>
       <li><strong>OpenVINO</strong> for maximum performance on Intel hardware</li>
     </ul>
 
