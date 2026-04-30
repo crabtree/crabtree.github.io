@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Comparing Texts with Embedding Similarity: Validate LLM Output - Tech@digitaltree.pl</title>
+
+  <style>
+    :root {
+      --bg: #0f0f0f;
+      --bg-secondary: #1a1a1a;
+      --bg-code: #151515;
+      --text: #e5e5e5;
+      --text-muted: #9a9a9a;
+      --accent: #ff6a00;
+      --border: #2a2a2a;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    header {
+      padding: 3rem 1.5rem 1rem;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .back-link {
+      display: inline-block;
+      margin-bottom: 2rem;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .back-link:hover {
+      color: var(--accent);
+    }
+
+    article {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 1.5rem 4rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 0.5rem;
+      line-height: 1.2;
+    }
+
+    .meta {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-bottom: 2rem;
+    }
+
+    h2 {
+      font-size: 1.8rem;
+      margin-top: 3rem;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid var(--border);
+    }
+
+    h3 {
+      font-size: 1.4rem;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+    }
+
+    p {
+      margin-bottom: 1.2rem;
+    }
+
+    ul, ol {
+      margin-bottom: 1.2rem;
+      padding-left: 2rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    code {
+      background: var(--bg-code);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #ffa07a;
+    }
+
+    pre {
+      background: var(--bg-code);
+      padding: 1.5rem;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+      border: 1px solid var(--border);
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+
+    .note {
+      background: var(--bg-secondary);
+      border-left: 4px solid var(--accent);
+      padding: 1rem 1.5rem;
+      margin: 1.5rem 0;
+      border-radius: 4px;
+    }
+
+    .note strong {
+      color: var(--accent);
+    }
+
+    .diagram {
+      background: var(--bg-secondary);
+      padding: 2rem;
+      border-radius: 6px;
+      margin: 1.5rem 0;
+      font-family: monospace;
+      font-size: 0.9rem;
+      line-height: 1.8;
+      border: 1px solid var(--border);
+      text-align: center;
+      white-space: pre;
+    }
+
+    .comparison-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.5rem 0;
+    }
+
+    .comparison-table th,
+    .comparison-table td {
+      padding: 0.75rem 1rem;
+      border: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .comparison-table th {
+      background: var(--bg-secondary);
+      color: var(--accent);
+    }
+
+    .comparison-table tr:nth-child(even) {
+      background: var(--bg-secondary);
+    }
+
+    .pass {
+      color: #6abf69;
+      font-weight: bold;
+    }
+
+    .fail {
+      color: #e05c5c;
+      font-weight: bold;
+    }
+
+    footer {
+      text-align: center;
+      padding: 2rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      border-top: 1px solid var(--border);
+    }
+
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2rem;
+      }
+
+      h2 {
+        font-size: 1.5rem;
+      }
+
+      .comparison-table th,
+      .comparison-table td {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.88rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <a href="../index.html" class="back-link">← Back to index</a>
+    <h1>Comparing Texts with Embedding Similarity: Validate LLM Output</h1>
+    <div class="meta">Published on April 30, 2026</div>
+  </header>
+
+  <article>
+
+    <p>
+      When you need to check whether two pieces of text mean the same thing — whether an LLM-generated answer matches
+      an expected reference, or whether two phrasings of the same idea are equivalent — exact string comparison fails
+      immediately. Embeddings do not. This post walks through building a practical text comparison toolkit in Python
+      using Ollama for embedding generation. It assumes Ollama is already running with <code>nomic-embed-text</code>
+      and <code>qwen3.6</code> available.
+    </p>
+
+    <h2>The Problem with Exact Matching</h2>
+
+    <p>
+      Consider a reference answer and three candidate answers generated by an LLM:
+    </p>
+
+    <ul>
+      <li><strong>Reference:</strong> "Ollama is a tool for running large language models locally on your own hardware."</li>
+      <li><strong>Candidate A:</strong> "Ollama lets you run LLMs on your own machine without sending data to the cloud." <em>(semantically identical, different wording)</em></li>
+      <li><strong>Candidate B:</strong> "You can use Ollama to self-host language models and keep your data private." <em>(semantically identical, different structure)</em></li>
+      <li><strong>Candidate C:</strong> "Ollama is a command-line tool written in Go that was released in 2023." <em>(factually different, shares topic keywords)</em></li>
+    </ul>
+
+    <p>
+      Here is how exact match, fuzzy match (<code>difflib.SequenceMatcher</code>), and embedding cosine similarity
+      score each candidate against the reference:
+    </p>
+
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Candidate</th>
+          <th>Exact match (==)</th>
+          <th>difflib ratio</th>
+          <th>Cosine similarity</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Candidate A — same meaning, different wording</td>
+          <td>False</td>
+          <td>0.47</td>
+          <td>0.93</td>
+        </tr>
+        <tr>
+          <td>Candidate B — same meaning, different structure</td>
+          <td>False</td>
+          <td>0.41</td>
+          <td>0.91</td>
+        </tr>
+        <tr>
+          <td>Candidate C — different meaning, shares keywords</td>
+          <td>False</td>
+          <td>0.52</td>
+          <td>0.61</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      Exact match rejects all three. Fuzzy matching actually ranks Candidate C <em>higher</em> than A and B because it
+      shares more surface-level tokens with the reference ("Ollama", "tool", "that"). Only cosine similarity correctly
+      identifies A and B as near-equivalent and C as substantially different.
+    </p>
+
+    <h2>How Embedding Similarity Works</h2>
+
+    <p>
+      An embedding model converts a piece of text into a dense vector of floating-point numbers — typically 384, 768,
+      or 1024 dimensions. Texts with similar meaning produce vectors that point in similar directions in that
+      high-dimensional space. Cosine similarity measures the angle between two vectors: a score of 1.0 means identical
+      direction (semantically equivalent), 0.0 means orthogonal (unrelated), and negative values indicate opposing
+      meaning.
+    </p>
+
+    <div class="note">
+      <strong>Already familiar with embeddings?</strong> If you have read the
+      <a href="low-vram-ai-usecase-embeddings.html">Embeddings Generation on Low VRAM GPUs</a> post, you can skip
+      this section — the concepts are the same. The rest of the post is self-contained either way.
+    </div>
+
+    <p>Practical thresholds for general-purpose text comparison with <code>nomic-embed-text</code>:</p>
+
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Score range</th>
+          <th>Interpretation</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>&ge; 0.90</td>
+          <td>Very high similarity — likely equivalent meaning</td>
+        </tr>
+        <tr>
+          <td>0.75 – 0.89</td>
+          <td>Related — partially overlapping meaning</td>
+        </tr>
+        <tr>
+          <td>0.50 – 0.74</td>
+          <td>Topically related but different content</td>
+        </tr>
+        <tr>
+          <td>&lt; 0.50</td>
+          <td>Substantially different</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      These thresholds are a starting point for general English text. I briefly cover how to calibrate them for a
+      specific domain.
+    </p>
+
+    <h2>Configuring the Ollama Host</h2>
+
+    <p>
+      All code in this post reads the Ollama host from an environment variable with a localhost fallback:
+    </p>
+
+    <pre><code>import os
+
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://localhost:11434")</code></pre>
+
+    <h2>The TextComparator Class</h2>
+
+    <p>
+      <code>TextComparator</code> wraps embedding generation and cosine similarity into a reusable interface. It reads
+      the Ollama host from the environment but accepts explicit overrides for cases where you need to target a specific
+      instance.
+    </p>
+
+<pre><code>import os
+import requests
+import numpy as np
+from typing import List
+
+class TextComparator:
+    def __init__(
+        self,
+        ollama_host: str = None,
+        model: str = "nomic-embed-text"
+    ):
+        self.host = ollama_host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+        self.model = model
+
+    def _get_embedding(self, text: str) -> List[float]:
+        response = requests.post(
+            f"{self.host}/api/embeddings",
+            json={"model": self.model, "prompt": text}
+        )
+        response.raise_for_status()
+        return response.json()["embedding"]
+
+    def _cosine_similarity(self, vec_a: List[float], vec_b: List[float]) -> float:
+        a = np.array(vec_a)
+        b = np.array(vec_b)
+        norm_a = np.linalg.norm(a)
+        norm_b = np.linalg.norm(b)
+        if norm_a == 0 or norm_b == 0:
+            return 0.0
+        return float(np.dot(a, b) / (norm_a * norm_b))
+
+    def compare(self, text_a: str, text_b: str) -> float:
+        """Return cosine similarity score between two texts (0.0 – 1.0)."""
+        emb_a = self._get_embedding(text_a)
+        emb_b = self._get_embedding(text_b)
+        return self._cosine_similarity(emb_a, emb_b)
+
+    def is_equivalent(
+        self,
+        text_a: str,
+        text_b: str,
+        threshold: float = 0.90
+    ) -> bool:
+        """Return True if the two texts are semantically equivalent."""
+        return self.compare(text_a, text_b) >= threshold
+
+    def compare_many(
+        self,
+        reference: str,
+        candidates: List[str]
+    ) -> List[dict]:
+        """
+        Compare a reference text against multiple candidates.
+        Returns candidates sorted by similarity score descending.
+        """
+        ref_emb = self._get_embedding(reference)
+        results = []
+        for candidate in candidates:
+            cand_emb = self._get_embedding(candidate)
+            score = self._cosine_similarity(ref_emb, cand_emb)
+            results.append({"text": candidate, "score": round(score, 4)})
+        return sorted(results, key=lambda x: x["score"], reverse=True)</code></pre>
+
+    <p>Usage examples:</p>
+
+<pre><code>comparator = TextComparator()
+
+# Single comparison
+score = comparator.compare(
+    "Ollama runs LLMs locally on your own hardware.",
+    "You can self-host language models with Ollama without cloud dependencies."
+)
+print(f"Score: {score:.4f}")
+
+# Boolean equivalence check
+is_same = comparator.is_equivalent(
+    "The model failed to load due to insufficient VRAM.",
+    "Not enough GPU memory to load the model.",
+    threshold=0.88
+)
+print(f"Equivalent: {is_same}")</code></pre>
+
+    <h2>Validating LLM Output Against Expected Answers</h2>
+
+    <p>
+      <code>LLMValidator</code> runs a test suite of (question, expected answer) pairs against a live LLM, scores
+      each generated response against the expected answer using <code>TextComparator</code>, and returns a structured
+      validation report.
+    </p>
+
+<pre><code>import os
+import requests
+from typing import List, Tuple
+
+class LLMValidator:
+    def __init__(
+        self,
+        ollama_host: str = None,
+        embedding_model: str = "nomic-embed-text",
+        generation_model: str = "qwen3.6",
+        threshold: float = 0.85
+    ):
+        host = ollama_host or os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+        
+        self.host = host
+        self.generation_model = generation_model
+        self.threshold = threshold
+        self.comparator = TextComparator(ollama_host=host, model=embedding_model)
+
+    def _generate(self, question: str) -> str:
+        response = requests.post(
+            f"{self.host}/api/generate",
+            json={
+                "model": self.generation_model,
+                "system": "You are a helpful and precise assistant for validating LLM outputs. Keep your answerst short, preferably one sentence, and concise.",
+                "prompt": question,
+                "stream": False
+            }
+        )
+        response.raise_for_status()
+        return response.json()["response"].strip()
+
+    def run(
+        self,
+        test_suite: List[Tuple[str, str]]
+    ) -> List[dict]:
+        """
+        Run a list of (question, expected_answer) pairs through the LLM
+        and score each response. Returns a validation report.
+        """
+        report = []
+        for question, expected in test_suite:
+            generated = self._generate(question)
+            score = self.comparator.compare(expected, generated)
+            report.append({
+                "question": question,
+                "expected": expected,
+                "generated": generated,
+                "similarity_score": round(score, 4),
+                "passed": score >= self.threshold
+            })
+        return report</code></pre>
+
+    <p>Running a 5-case test suite:</p>
+
+<pre><code>test_suite = [
+    # 1. Factual question
+    (
+        "What does the ollama pull command do?",
+        "The ollama pull command downloads a large language model from the Ollama registry and saves it locally so you can run it offline."
+    ),
+    # 2. Summarisation task
+    (
+        "Summarise in one sentence why embeddings are useful for semantic search.",
+        "Embeddings convert text into dense numerical vectors that capture contextual meaning, enabling searches to match concepts and intent rather than just exact keywords."
+    ),
+    # 3. Instruction-following (list exactly three items)
+    (
+        "When running LLMs locally with Ollama, does it query the Internet?",
+        "No, once a model is downloaded, Ollama runs entirely offline and never queries the internet; it only connects online to download models or check for updates."
+    ),
+    # 4. Paraphrasing — two valid phrasings of the same answer
+    (
+        "What is cosine similarity used for in NLP?",
+        "In NLP, cosine similarity is primarily used to measure the directional or semantic similarity between text embeddings, documents, or word vectors, enabling tasks like document matching, clustering, and semantic search."
+    ),
+    # 5. Intentionally wrong expected answer (regression simulation)
+    (
+        "What programming language is Ollama written in?",
+        "Ollama is written in Rust and uses the Tokio async runtime."
+    ),
+]
+
+validator = LLMValidator()
+report = validator.run(test_suite)
+
+# Print results table
+print(f"{'Question':<42} {'Score':>6}  {'Result'}")
+print("-" * 62)
+for row in report:
+    q = row["question"][:40] + ".." if len(row["question"]) > 40 else row["question"]
+    status = "PASS" if row["passed"] else "FAIL"
+    print(f"{q:<42} {row['similarity_score']:>6.4f}  {status}")</code></pre>
+
+    <p>Expected output (scores are approximate and will vary by model version):</p>
+
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th>Question</th>
+          <th>Similarity score</th>
+          <th>Result</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>What does the ollama pull command do?</td>
+          <td>0.8795</td>
+          <td><span class="pass">PASS</span></td>
+        </tr>
+        <tr>
+          <td>Summarise in one sentence why embeddings...</td>
+          <td>0.9809</td>
+          <td><span class="pass">PASS</span></td>
+        </tr>
+        <tr>
+          <td>List exactly three benefits of running...</td>
+          <td>0.9034</td>
+          <td><span class="pass">PASS</span></td>
+        </tr>
+        <tr>
+          <td>What is cosine similarity used for in NLP?</td>
+          <td>0.9858</td>
+          <td><span class="pass">PASS</span></td>
+        </tr>
+        <tr>
+          <td>What programming language is Ollama written...</td>
+          <td>0.8111</td>
+          <td><span class="fail">FAIL</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      The validator correctly flags case 5 — the expected answer mentions Rust, but the model correctly answers Go,
+      producing a low similarity score against the wrong reference. Cases 1, 2, and 4 pass comfortably. Case 3
+      illustrates an important nuance: the model likely returned a full sentence rather than a bare three-item list,
+      yet the semantic content is close enough to pass at 0.85.
+    </p>
+
+    <h2>Interpreting Results</h2>
+
+    <p>
+      Embedding similarity scores are signals, not verdicts. A few important caveats to keep in mind when using them
+      in practice:
+    </p>
+
+    <ul>
+      <li>
+        <strong>High similarity does not mean factually correct.</strong> Two confident but wrong answers on the same
+        topic will score high against each other. Similarity measures phrasing equivalence, not truth.
+      </li>
+      <li>
+        <strong>Low similarity does not always mean wrong.</strong> A valid answer phrased from a very different angle
+        — or using domain jargon vs plain language — may score lower than expected even when it is correct.
+      </li>
+      <li>
+        <strong>Use similarity as a signal, not a binary gate</strong> for open-ended generation tasks. A hard
+        pass/fail threshold works well for regression testing but poorly for evaluating free-form responses.
+      </li>
+      <li>
+        <strong>For structured output</strong> (JSON, numbered lists, code), combine similarity scoring with format
+        validation. A response can be semantically similar to the expected output and still be structurally invalid.
+      </li>
+      <li>
+        <strong>Combine with keyword checks</strong> for factual assertions where specific terms must appear — for
+        example, verifying that a response about CUDA configuration actually contains the word "CUDA".
+      </li>
+    </ul>
+
+    <div class="note">
+      <strong>Similarity ≠ correctness.</strong> A hallucinated but fluent answer on the same topic as the reference
+      can score 0.85 or higher. This tool is best used to detect semantic drift and phrasing equivalence — not as a
+      factual accuracy checker.
+    </div>
+
+    <h2>Batch Comparison with compare_many</h2>
+
+    <p>
+      Some questions have multiple equally valid correct answers. Rather than picking a single reference, you can
+      compare a generated response against all valid references and accept the result if any score clears the
+      threshold.
+    </p>
+
+<pre><code>comparator = TextComparator()
+
+# Three equally valid ways to describe the same concept
+valid_references = [
+    "Cosine similarity returns a value between -1 and 1 indicating how similar two vectors are.",
+    "It measures the angle between two vectors in a high-dimensional space — 1.0 means identical direction.",
+    "Cosine similarity is a metric for comparing the orientation of two embedding vectors, not their magnitude."
+]
+
+generated = (
+    "Cosine similarity computes a score from -1 to 1 that reflects "
+    "how closely two vectors point in the same direction."
+)
+
+results = comparator.compare_many(generated, valid_references)
+
+for r in results:
+    print(f"{r['score']:.4f}  {r['text'][:70]}")</code></pre>
+
+    <p>
+      <code>compare_many</code> returns candidates sorted by score descending. To accept the generated answer if any
+      reference matches:
+    </p>
+
+<pre><code>best_score = results[0]["score"]
+threshold = 0.85
+
+if best_score >= threshold:
+    print(f"Valid — best match score: {best_score:.4f}")
+else:
+    print(f"No reference matched — best score was only {best_score:.4f}")</code></pre>
+
+    <h2>Practical Threshold Calibration</h2>
+
+    <p>
+      The default thresholds (0.90 for <code>is_equivalent</code>, 0.85 for <code>LLMValidator</code>) are reasonable
+      starting points for general English text. For a specific domain, calibrate them against a small labeled dataset.
+    </p>
+
+    <p>
+      Collect 20–30 text pairs and label each as <code>equivalent</code> or <code>different</code>. Run
+      <code>TextComparator.compare</code> on each pair and inspect where the scores cluster. The threshold should sit
+      in the gap between the two clusters.
+    </p>
+
+<pre><code>comparator = TextComparator()
+
+# Labeled pairs: (text_a, text_b, label)
+# Domain: Ollama configuration Q&A
+labeled_pairs = [
+    # Equivalent pairs
+    ("Set OLLAMA_HOST to 0.0.0.0 to allow remote connections.",
+     "To accept connections from other machines, bind Ollama to 0.0.0.0.",
+     "equivalent"),
+    ("Use ollama list to see which models are downloaded.",
+     "The ollama list command shows all models available locally.",
+     "equivalent"),
+    ("Ollama stores models in ~/.ollama/models by default.",
+     "By default, downloaded models are kept in the .ollama/models directory in your home folder.",
+     "equivalent"),
+    ("Set OLLAMA_NUM_PARALLEL to control concurrent request handling.",
+     "OLLAMA_NUM_PARALLEL determines how many requests Ollama processes simultaneously.",
+     "equivalent"),
+    ("Run ollama serve to start the Ollama API server.",
+     "Starting the API server is done with the ollama serve command.",
+     "equivalent"),
+    # Different pairs
+    ("Ollama supports streaming responses via the API.",
+     "The ollama pull command downloads a model from the registry.",
+     "different"),
+    ("GPU acceleration is automatic when a compatible GPU is detected.",
+     "Ollama was first released in 2023.",
+     "different"),
+    ("Use ollama rm to delete a model from local storage.",
+     "The context window size is set with the num_ctx parameter.",
+     "different"),
+    ("OLLAMA_MAX_LOADED_MODELS limits how many models stay in memory.",
+     "Cosine similarity measures the angle between two vectors.",
+     "different"),
+    ("Set the temperature to 0.1 for deterministic outputs.",
+     "Ollama exposes a REST API on port 11434 by default.",
+     "different"),
+]
+
+print(f"{'Label':<12} {'Score':>6}  Text A (truncated)")
+print("-" * 65)
+for text_a, text_b, label in labeled_pairs:
+    score = comparator.compare(text_a, text_b)
+    print(f"{label:<12} {score:>6.4f}  {text_a[:45]}...")</code></pre>
+
+    <p>
+      Inspect the output: equivalent pairs typically cluster above 0.88; different pairs typically fall below 0.65.
+      The midpoint of the gap — often around 0.80–0.85 for this kind of technical Q&A — becomes your domain-specific
+      threshold.
+    </p>
+
+    <h2>Limitations</h2>
+
+    <div class="note">
+      <strong>Token limit.</strong> <code>nomic-embed-text</code> has a 512-token context limit.
+      <code>nomic-embed-text-v1.5</code> extends this to 8192 tokens. For documents longer than ~400 words, split the
+      text into chunks before embedding — comparing a 2000-word document as a single embedding silently truncates
+      most of the content and produces unreliable scores.
+    </div>
+
+    <ul>
+      <li>
+        <strong>General-purpose model limitations.</strong> <code>nomic-embed-text</code> is trained primarily on
+        general English text. For specialised domains — legal contracts, medical notes, source code — a
+        domain-specific embedding model will produce more accurate similarity scores.
+      </li>
+      <li>
+        <strong>Semantic similarity is not factual correctness.</strong> A hallucinated but fluent answer on the same
+        topic as the reference may score 0.85+ against it. Use this approach for phrasing equivalence and context
+        grounding detection, not factual accuracy verification.
+      </li>
+      <li>
+        <strong>Performance at scale.</strong> Each comparison requires two embedding inference calls. For large test
+        suites — hundreds of pairs — use batch embedding to amortise the overhead.
+      </li>
+      <li>
+        <strong>Language sensitivity.</strong> <code>nomic-embed-text</code> is primarily an English model.
+        Cross-language similarity scores are less reliable. For multilingual use cases, consider
+        <code>multilingual-e5-large</code>, which is available through Ollama.
+      </li>
+      <li>
+        <strong>Structured output.</strong> Semantic similarity is a poor validator for structured formats — JSON
+        schemas, numbered lists, code. A response can be semantically close to the expected output and still be
+        structurally malformed. Always combine similarity scoring with format validation for structured tasks.
+      </li>
+    </ul>
+
+  </article>
+
+  <footer>
+    &copy; 2026 Krystian Cieślik
+  </footer>
+
+</body>
+</html>
